@@ -6,7 +6,7 @@ const { dbInfo, initDb, readDb, writeDb } = require("./database");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4174);
-const host = process.env.FLEETDESK_HOST || process.env.HOST || "127.0.0.1";
+const host = process.env.FLEETDESK_HOST || process.env.HOST || (process.env.RENDER ? "0.0.0.0" : "127.0.0.1");
 const backupsDir = process.env.FLEETDESK_BACKUP_DIR || path.join(root, "backups");
 const storageDriver = (process.env.STORAGE_DRIVER || "local").toLowerCase();
 const supabaseStorageBucket = process.env.SUPABASE_STORAGE_BUCKET || "am3-fleet";
