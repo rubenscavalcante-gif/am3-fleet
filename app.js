@@ -4,7 +4,7 @@ const apiBases = [
   "http://127.0.0.1:4175",
   "http://127.0.0.1:4174"
 ];
-let apiBase = localStorage.getItem("fleetdesk-api-base") || "";
+let apiBase = window.location.protocol === "https:" ? "" : localStorage.getItem("fleetdesk-api-base") || "";
 
 const titles = {
   dashboard: "Painel da frota",
