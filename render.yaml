@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: am3-fleet
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_HOST
+        value: aws-1-sa-east-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_USER
+        value: postgres.tmcdslecowxoztikmdbp
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_REJECT_UNAUTHORIZED
+        value: "false"
+      - key: STORAGE_DRIVER
+        value: supabase
+      - key: SUPABASE_URL
+        value: https://tmcdslecowxoztikmdbp.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: am3-fleet

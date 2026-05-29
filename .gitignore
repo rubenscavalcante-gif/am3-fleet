@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.azure.example
+!.env.supabase.example
+data/
+backups/
+uploads/
+*.log
+fleetdesk-*.png
+npm-debug.log*

@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AM3 Fleet - Gestão de Frotas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <div class="brand login-brand">
+          <div class="brand-mark" aria-hidden="true"><img src="assets/am3-fleet-icon.png" alt="" /></div>
+          <div>
+            <strong>AM3 Fleet</strong>
+            <span>Gestão de Frotas</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Acesso</p>
+          <h1>Entrar no sistema</h1>
+        </div>
+        <label>E-mail<input name="email" type="email" value="admin@empresa.com" required /></label>
+        <label>Senha<input name="password" type="password" required /></label>
+        <button class="primary-button" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="appShell" class="app-shell is-hidden">
+      <aside class="sidebar" aria-label="Navegação principal">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><img src="assets/am3-fleet-icon.png" alt="" /></div>
+          <div>
+            <strong>AM3 Fleet</strong>
+            <span>Gestão de Frotas</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard" type="button">
+            <span class="icon">⌂</span>
+            Painel
+          </button>
+          <button class="nav-item" data-view="reception" type="button">
+            <span class="icon">R</span>
+            Recepção
+          </button>
+          <button class="nav-item" data-view="schedule" type="button">
+            <span class="icon">◷</span>
+            Agendamentos
+          </button>
+          <button class="nav-item" data-view="quickExits" type="button">
+            <span class="icon">↗</span>
+            Saídas rápidas
+          </button>
+          <button class="nav-item" data-view="vehicles" type="button">
+            <span class="icon">▣</span>
+            Veículos
+          </button>
+          <button class="nav-item" data-view="drivers" type="button">
+            <span class="icon">◉</span>
+            Motoristas
+          </button>
+          <button class="nav-item" data-view="fuel" type="button">
+            <span class="icon">◇</span>
+            Abastecimentos
+          </button>
+          <button class="nav-item" data-view="maintenance" type="button">
+            <span class="icon">⚙</span>
+            Manutenção
+          </button>
+          <button class="nav-item" data-view="release" type="button">
+            <span class="icon">✓</span>
+            Liberação
+          </button>
+          <button class="nav-item" data-view="checklists" type="button">
+            <span class="icon">☑</span>
+            Checklists
+          </button>
+          <button class="nav-item" data-view="documents" type="button">
+            <span class="icon">▤</span>
+            Documentos
+          </button>
+          <button class="nav-item" data-view="expirations" type="button">
+            <span class="icon">!</span>
+            Vencimentos
+          </button>
+          <button class="nav-item" data-view="reports" type="button">
+            <span class="icon">▥</span>
+            Relatórios
+          </button>
+          <button class="nav-item" data-view="users" type="button">
+            <span class="icon">◌</span>
+            Usuários
+          </button>
+          <button class="nav-item" data-view="audit" type="button">
+            <span class="icon">◍</span>
+            Auditoria
+          </button>
+          <button class="nav-item" data-view="system" type="button">
+            <span class="icon">i</span>
+            Sistema
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span>Dados salvos neste navegador</span>
+          <button id="resetData" class="ghost-button" type="button">Restaurar demo</button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Operação</p>
+            <h1 id="viewTitle">Painel da frota</h1>
+          </div>
+          <div class="topbar-actions">
+            <label class="search-box">
+              <span>Buscar</span>
+              <input id="globalSearch" type="search" placeholder="Placa, motorista, destino..." />
+            </label>
+            <button id="logoutButton" class="secondary-button" type="button">Sair</button>
+            <button id="exportData" class="primary-button" type="button">Exportar CSV</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="view active-view" aria-labelledby="viewTitle">
+          <div class="metrics-grid" id="metricsGrid"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Hoje</p>
+                  <h2>Agenda operacional</h2>
+                </div>
+              </div>
+              <div id="todaySchedule" class="timeline"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Atenção</p>
+                  <h2>Alertas da frota</h2>
+                </div>
+              </div>
+              <div id="alertsList" class="alert-list"></div>
+            </section>
+          </div>
+          <section class="panel dashboard-wide">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Disponibilidade</p>
+                <h2>Status automático da frota</h2>
+              </div>
+            </div>
+            <div id="fleetStatusList" class="record-list compact-records"></div>
+          </section>
+        </section>
+
+        <section id="reception" class="view" aria-labelledby="viewTitle">
+          <div class="metrics-grid reception-metrics" id="receptionMetrics"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Agora</p>
+                  <h2>Saídas abertas</h2>
+                </div>
+                <button class="secondary-button" type="button" data-go-view="quickExits">Nova saída</button>
+              </div>
+              <div id="receptionOpenExits" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Disponibilidade</p>
+                  <h2>Veículos livres para retirada</h2>
+                </div>
+              </div>
+              <div id="receptionAvailableVehicles" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="schedule" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="bookingForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Agenda</p>
+                  <h2>Novo agendamento</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Motorista<select name="driverId" required></select></label>
+                <label>Início<input name="start" type="datetime-local" required /></label>
+                <label>Fim<input name="end" type="datetime-local" required /></label>
+                <label class="wide">Destino<input name="destination" placeholder="Cliente, obra, filial..." required /></label>
+                <label class="wide">Objetivo<input name="purpose" placeholder="Entrega, visita técnica, coleta..." required /></label>
+              </div>
+              <button class="primary-button" type="submit">Agendar veículo</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Reservas</p>
+                  <h2>Próximos agendamentos</h2>
+                </div>
+              </div>
+              <div id="bookingList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="quickExits" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="quickExitForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Avulsa</p>
+                  <h2>Nova saída rápida</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Motorista<select name="driverId" required></select></label>
+                <label>Saída<input name="departureAt" type="datetime-local" required /></label>
+                <label>Status<select name="status" required>
+                  <option>Aberta</option>
+                  <option>Concluída</option>
+                  <option>Cancelada</option>
+                </select></label>
+                <label class="wide">Destino<input name="destination" placeholder="Banco, cliente, obra, compra..." required /></label>
+                <label class="wide">Motivo<input name="reason" placeholder="Retirada de material, atendimento, entrega..." required /></label>
+                <label>Valor adiantado<input name="advanceAmount" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Finalidade<select name="advancePurpose" required>
+                  <option>Combustível</option>
+                  <option>Alimentação</option>
+                  <option>Pedágio</option>
+                  <option>Estacionamento</option>
+                  <option>Outras despesas</option>
+                  <option>Sem adiantamento</option>
+                </select></label>
+                <label>Retorno<input name="returnedAt" type="datetime-local" /></label>
+                <label>Valor gasto<input name="spentAmount" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Gasto combustível<input name="fuelExpense" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Gasto alimentação<input name="foodExpense" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Outras despesas<input name="otherExpense" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Valor devolvido<input name="returnedAmount" type="number" min="0" step="0.01" value="0" /></label>
+                <label class="wide">Comprovante<input name="receiptRef" placeholder="Nº recibo, foto, cupom, pasta ou observação" /></label>
+                <label class="wide">Observações<input name="notes" placeholder="Comprovantes, orientação da recepção, pendências..." /></label>
+              </div>
+              <button class="primary-button" type="submit">Registrar saída</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Movimento</p>
+                  <h2>Saídas rápidas</h2>
+                </div>
+              </div>
+              <div id="quickExitList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="vehicles" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="vehicleForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Cadastro</p>
+                  <h2>Novo veículo</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Placa<input name="plate" placeholder="ABC1D23" required /></label>
+                <label>Modelo<input name="model" placeholder="Strada, Sprinter..." required /></label>
+                <label>Ano<input name="year" type="number" min="1980" max="2035" required /></label>
+                <label>Status<select name="status" required>
+                  <option>Disponível</option>
+                  <option>Em uso</option>
+                  <option>Manutenção</option>
+                  <option>Inativo</option>
+                </select></label>
+                <label>Centro de custo<input name="costCenter" placeholder="Comercial, Operações..." required /></label>
+              </div>
+              <button class="primary-button" type="submit">Cadastrar veículo</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Frota</p>
+                  <h2>Veículos cadastrados</h2>
+                </div>
+              </div>
+              <div id="vehicleList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="drivers" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="driverForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Cadastro</p>
+                  <h2>Novo motorista</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Nome<input name="name" required /></label>
+                <label>Telefone<input name="phone" placeholder="(11) 99999-9999" required /></label>
+                <label>CNH<input name="license" required /></label>
+                <label>Validade CNH<input name="licenseDue" type="date" required /></label>
+                <label>Status<select name="status" required>
+                  <option>Ativo</option>
+                  <option>Férias</option>
+                  <option>Bloqueado</option>
+                </select></label>
+                <label>Área<input name="department" placeholder="Operações" required /></label>
+              </div>
+              <button class="primary-button" type="submit">Cadastrar motorista</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Equipe</p>
+                  <h2>Motoristas cadastrados</h2>
+                </div>
+              </div>
+              <div id="driverList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="fuel" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="fuelForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Custos</p>
+                  <h2>Novo abastecimento</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Data<input name="date" type="date" required /></label>
+                <label>Litros<input name="liters" type="number" min="0" step="0.01" required /></label>
+                <label>Valor total<input name="total" type="number" min="0" step="0.01" required /></label>
+                <label>Posto<input name="station" /></label>
+              </div>
+              <button class="primary-button" type="submit">Registrar abastecimento</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Histórico</p>
+                  <h2>Abastecimentos</h2>
+                </div>
+              </div>
+              <div id="fuelList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="maintenance" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="maintenanceForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Oficina</p>
+                  <h2>Nova manutenção</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Tipo<select name="type" required>
+                  <option>Preventiva</option>
+                  <option>Corretiva</option>
+                  <option>Documentação</option>
+                  <option>Pneus</option>
+                </select></label>
+                <label>Data<input name="date" type="date" required /></label>
+                <label>Valor<input name="cost" type="number" min="0" step="0.01" required /></label>
+                <label>Status<select name="status" required>
+                  <option>Aberta</option>
+                  <option>Agendada</option>
+                  <option>Concluída</option>
+                </select></label>
+                <label>Próxima revisão<input name="nextDue" type="date" required /></label>
+                <label class="wide">Descrição<input name="description" placeholder="Troca de óleo, freio, vistoria..." required /></label>
+              </div>
+              <button class="primary-button" type="submit">Registrar manutenção</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Histórico</p>
+                  <h2>Manutenções</h2>
+                </div>
+              </div>
+              <div id="maintenanceList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="release" class="view" aria-labelledby="viewTitle">
+          <div class="metrics-grid reception-metrics" id="releaseMetrics"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Bloqueios</p>
+                  <h2>Veículos em manutenção</h2>
+                </div>
+              </div>
+              <div id="releaseBlockedVehicles" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Oficina</p>
+                  <h2>Manutenções abertas</h2>
+                </div>
+                <button class="secondary-button" type="button" data-go-view="maintenance">Nova manutenção</button>
+              </div>
+              <div id="releaseOpenMaintenance" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="checklists" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="checklistForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Operação</p>
+                  <h2>Novo checklist</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Motorista<select name="driverId" required></select></label>
+                <label>Tipo<select name="type" required>
+                  <option>Retirada</option>
+                  <option>Devolução</option>
+                </select></label>
+                <label>Data<input name="date" type="datetime-local" required /></label>
+                <label>Combustível<select name="fuelLevel" required>
+                  <option>Cheio</option>
+                  <option>3/4</option>
+                  <option>1/2</option>
+                  <option>1/4</option>
+                  <option>Reserva</option>
+                </select></label>
+                <label class="check-option"><input name="tires" type="checkbox" checked /> Pneus ok</label>
+                <label class="check-option"><input name="lights" type="checkbox" checked /> Luzes ok</label>
+                <label class="check-option"><input name="documents" type="checkbox" checked /> Documentos ok</label>
+                <label class="check-option"><input name="cleanliness" type="checkbox" checked /> Limpeza ok</label>
+                <label>Status<select name="status" required>
+                  <option>Concluído</option>
+                  <option>Com ressalva</option>
+                  <option>Bloqueado</option>
+                </select></label>
+                <label class="wide">Observações<input name="notes" placeholder="Avarias, itens faltantes, condição geral..." /></label>
+              </div>
+              <button class="primary-button" type="submit">Salvar checklist</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Histórico</p>
+                  <h2>Checklists</h2>
+                </div>
+              </div>
+              <div id="checklistList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="documents" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="documentForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Arquivo</p>
+                  <h2>Novo documento</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Vincular a<select name="ownerType" required>
+                  <option value="vehicle">Veículo</option>
+                  <option value="driver">Motorista</option>
+                </select></label>
+                <label>Registro<select name="ownerId" required></select></label>
+                <label>Tipo<select name="type" required>
+                  <option>CRLV</option>
+                  <option>CNH</option>
+                  <option>Seguro</option>
+                  <option>Licenciamento</option>
+                  <option>Contrato</option>
+                  <option>Outro</option>
+                </select></label>
+                <label>Vencimento<input name="dueDate" type="date" required /></label>
+                <label class="wide">Nome<input name="name" placeholder="Ex.: Seguro Sprinter 2026" required /></label>
+                <label class="wide">Arquivo ou link<input name="fileRef" placeholder="Nome do arquivo, pasta, link ou protocolo" /></label>
+                <label class="wide">Observações<input name="notes" placeholder="Detalhes, responsável, pendências..." /></label>
+              </div>
+              <button class="primary-button" type="submit">Salvar documento</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Vencimentos</p>
+                  <h2>Documentos</h2>
+                </div>
+              </div>
+              <div id="documentList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="expirations" class="view" aria-labelledby="viewTitle">
+          <div class="metrics-grid reception-metrics" id="expirationMetrics"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Ação necessária</p>
+                  <h2>Documentos vencidos ou próximos</h2>
+                </div>
+                <button class="secondary-button" type="button" data-go-view="documents">Novo documento</button>
+              </div>
+              <div id="expirationDueList" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Cadastro incompleto</p>
+                  <h2>Documentos obrigatórios faltando</h2>
+                </div>
+              </div>
+              <div id="expirationMissingList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="reports" class="view" aria-labelledby="viewTitle">
+          <section class="panel report-filter-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Filtros</p>
+                <h2>Dashboards e relatórios</h2>
+              </div>
+              <div class="record-actions">
+                <button class="secondary-button" type="button" data-print-report="operations">Imprimir operações</button>
+                <button class="secondary-button" type="button" data-print-report="finance">Imprimir financeiro</button>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>Início<input id="reportStart" type="date" /></label>
+              <label>Fim<input id="reportEnd" type="date" /></label>
+              <label>Veículo<select id="reportVehicle"></select></label>
+              <label>Motorista<select id="reportDriver"></select></label>
+            </div>
+          </section>
+          <div class="metrics-grid report-metrics" id="reportMetrics"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Financeiro</p>
+                  <h2>Custos por veículo</h2>
+                </div>
+              </div>
+              <div id="costReport" class="report-bars"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Uso</p>
+                  <h2>Viagens por motorista</h2>
+                </div>
+              </div>
+              <div id="driverReport" class="report-bars"></div>
+            </section>
+          </div>
+          <div class="content-grid two-columns dashboard-wide">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Operações</p>
+                  <h2>Movimentos no período</h2>
+                </div>
+              </div>
+              <div id="operationReportList" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Financeiro</p>
+                  <h2>Lançamentos no período</h2>
+                </div>
+              </div>
+              <div id="financeReportList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="users" class="view" aria-labelledby="viewTitle">
+          <div class="content-grid form-and-list">
+            <form id="userForm" class="panel form-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Acesso</p>
+                  <h2>Novo usuário</h2>
+                </div>
+              </div>
+              <div class="form-grid">
+                <label>Nome<input name="name" required /></label>
+                <label>E-mail<input name="email" type="email" required /></label>
+                <label>Senha<input name="password" type="password" placeholder="Opcional ao editar" /></label>
+                <label>Perfil<select name="role" required>
+                  <option value="admin">Administrador</option>
+                  <option value="operador">Operador</option>
+                </select></label>
+              </div>
+              <button class="primary-button" type="submit">Salvar usuário</button>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Equipe</p>
+                  <h2>Usuários do sistema</h2>
+                </div>
+              </div>
+              <div id="userList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="audit" class="view" aria-labelledby="viewTitle">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Histórico</p>
+                <h2>Auditoria do sistema</h2>
+              </div>
+            </div>
+            <div id="auditList" class="record-list"></div>
+          </section>
+        </section>
+        <section id="system" class="view" aria-labelledby="viewTitle">
+          <div class="metrics-grid reception-metrics" id="systemMetrics"></div>
+          <div class="content-grid two-columns">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Conexão</p>
+                  <h2>Status do sistema</h2>
+                </div>
+                <button id="refreshSystemStatus" class="secondary-button" type="button">Atualizar</button>
+              </div>
+              <div id="systemStatusList" class="record-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Segurança</p>
+                  <h2>Backup manual</h2>
+                </div>
+                <button id="runBackup" class="primary-button" type="button">Gerar backup</button>
+              </div>
+              <div id="backupStatusList" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="quickExitCloseModal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="quickExitCloseTitle">
+      <form id="quickExitCloseForm" class="modal-panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Conferência</p>
+            <h2 id="quickExitCloseTitle">Finalizar saída rápida</h2>
+          </div>
+        </div>
+        <div class="settlement-summary">
+          <span>Valor adiantado</span>
+          <strong id="settlementAdvance">R$ 0,00</strong>
+          <small id="settlementContext">Selecione uma saída para conferir.</small>
+        </div>
+        <div class="form-grid">
+          <label>Combustível<input name="fuelExpense" type="number" min="0" step="0.01" value="0" /></label>
+          <label>Anexar combustível<input name="fuelReceiptFile" type="file" data-receipt-target="fuelReceiptRef" data-receipt-list="fuelReceiptList" multiple /></label>
+          <div id="fuelReceiptList" class="attachment-list"></div>
+          <input name="fuelReceiptRef" type="hidden" />
+          <label>Alimentação<input name="foodExpense" type="number" min="0" step="0.01" value="0" /></label>
+          <label>Anexar alimentação<input name="foodReceiptFile" type="file" data-receipt-target="foodReceiptRef" data-receipt-list="foodReceiptList" multiple /></label>
+          <div id="foodReceiptList" class="attachment-list"></div>
+          <input name="foodReceiptRef" type="hidden" />
+          <label>Outras despesas<input name="otherExpense" type="number" min="0" step="0.01" value="0" /></label>
+          <label>Anexar outras<input name="otherReceiptFile" type="file" data-receipt-target="otherReceiptRef" data-receipt-list="otherReceiptList" multiple /></label>
+          <div id="otherReceiptList" class="attachment-list"></div>
+          <input name="otherReceiptRef" type="hidden" />
+          <label>Retorno<input name="returnedAt" type="datetime-local" required /></label>
+          <label class="wide">Comprovante geral<input name="receiptRef" placeholder="Observação geral dos comprovantes, se houver..." /></label>
+          <label class="wide">Observações<input name="notes" placeholder="Detalhes da conferência..." /></label>
+        </div>
+        <div class="settlement-total">
+          <div>
+            <span>Total gasto</span>
+            <strong id="settlementSpent">R$ 0,00</strong>
+          </div>
+          <div>
+            <span>Valor a devolver</span>
+            <strong id="settlementReturn">R$ 0,00</strong>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelQuickExitClose" class="secondary-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Concluir conferência</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

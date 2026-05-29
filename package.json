@@ -1,0 +1,27 @@
+{
+  "name": "am3-fleet",
+  "version": "0.2.0",
+  "description": "Aplicacao web local AM3 Fleet para gestao de frota empresarial.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:sqlite": "node server.js",
+    "start:sqlserver": "node scripts/start-sqlserver.js",
+    "start:supabase": "node server.js",
+    "import:postgres": "node scripts/import-json-to-postgres.js",
+    "change-password": "node scripts/change-app-user-password.js",
+    "reset:operational": "node scripts/reset-operational-data.js",
+    "check": "node --check server.js && node --check database.js && node --check app.js"
+  },
+  "keywords": [
+    "frota",
+    "veiculos",
+    "gestao"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "mssql": "^12.5.4",
+    "pg": "^8.16.3"
+  }
+}
