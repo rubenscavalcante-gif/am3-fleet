@@ -1,4 +1,4 @@
-const CACHE_NAME = "am3-fleet-shell-v2";
+const CACHE_NAME = "am3-fleet-shell-v3";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -31,6 +31,19 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.pathname.startsWith("/api/") || request.method !== "GET") {
+    return;
+  }
+
+  if (["/", "/index.html", "/app.js", "/styles.css", "/manifest.webmanifest"].includes(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 

@@ -43,6 +43,7 @@ let searchTerm = "";
 let currentUser = null;
 let closingQuickExitId = null;
 let systemStatus = null;
+let lastAutoRefreshAt = 0;
 const editing = {};
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -54,6 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireNavigation();
   wireForms();
   wireActions();
+  wireAutoRefresh();
   setDefaultDates();
 
   if (authToken) {
@@ -66,6 +68,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;
   navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+}
+
+function wireAutoRefresh() {
+  window.setInterval(() => autoRefreshData(), 20000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) autoRefreshData(true);
+  });
+  window.addEventListener("focus", () => autoRefreshData(true));
 }
 
 function wireNavigation() {
@@ -741,6 +751,21 @@ async function startAuthenticatedApp() {
 
 async function refreshData() {
   data = await api("/api/data");
+}
+
+async function autoRefreshData(force = false) {
+  if (!authToken || !currentUser) return;
+  if (closingQuickExitId) return;
+  if (Object.keys(editing).length) return;
+  if (!force && Date.now() - lastAutoRefreshAt < 18000) return;
+
+  lastAutoRefreshAt = Date.now();
+  try {
+    await refreshData();
+    renderAll();
+  } catch (error) {
+    // Mantem a tela atual se a conexao oscilar.
+  }
 }
 
 async function api(url, options = {}) {
