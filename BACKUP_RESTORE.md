@@ -1,63 +1,59 @@
-# Backup e Restauracao do FleetDesk
+# Backup e Restauracao do AM3 Fleet
 
-## Backup manual
+O AM3 Fleet em producao usa:
 
-O backup e gerado pelo SQL Server no computador/servidor onde o SQL Server roda.
+- Supabase/Postgres para dados.
+- Supabase Storage para anexos.
 
-Caminho padrao:
+## Backup recomendado
+
+Use dois niveis:
+
+1. Backup automatico do proprio Supabase.
+2. Exportacao JSON manual pelo AM3 Fleet, para ter uma copia simples dos cadastros e movimentos.
+
+## Backup JSON local
+
+No PowerShell:
+
+```powershell
+cd "C:\Users\am3solucoes\Documents\Codex\2026-05-25\voc-conhece-alguma-aplica-o-web\am3-fleet"
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\backup-supabase.ps1
+```
+
+Informe:
 
 ```text
-C:\FleetDeskBackups
+Host do Supabase: aws-1-sa-east-1.pooler.supabase.com
+Usuario do banco Supabase: postgres.tmcdslecowxoztikmdbp
+Senha do banco Supabase: sua senha do Supabase
 ```
 
-Esse diretorio precisa existir no servidor `Rubens`, e o servico do SQL Server precisa ter permissao de escrita nele.
+O arquivo sera criado em:
 
-Para executar:
+```text
+backups\am3-fleet-backup-AAAA-MM-DD...
+```
+
+## Restaurar JSON
+
+Use com cuidado: a restauracao substitui os dados atuais pelo conteudo do arquivo.
 
 ```powershell
-cd "C:\Users\am3solucoes\Documents\Codex\2026-05-25\voc-conhece-alguma-aplica-o-web"
-.\scripts\backup-sqlserver-rubens.ps1
+.\scripts\restore-supabase.ps1 "backups\am3-fleet-backup-AAAA-MM-DD.json"
 ```
 
-Para trocar o diretorio:
+## Backup pelo Render
 
-```powershell
-$env:FLEETDESK_BACKUP_DIR="D:\Backups\FleetDesk"
-.\scripts\backup-sqlserver-rubens.ps1
+A tela **Sistema** do AM3 Fleet tambem gera backup JSON, mas no Render o arquivo fica dentro do ambiente temporario do servico. Para uma copia local, prefira rodar `scripts\backup-supabase.ps1` no seu computador.
+
+## Anexos
+
+Os anexos ficam no bucket:
+
+```text
+am3-fleet
 ```
 
-## Restauracao manual
-
-No SQL Server Management Studio, use um backup `.bak` gerado e rode algo neste formato:
-
-```sql
-USE master;
-GO
-
-ALTER DATABASE FleetDesk SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-GO
-
-RESTORE DATABASE FleetDesk
-FROM DISK = 'C:\FleetDeskBackups\FleetDesk_YYYYMMDDHHMMSS.bak'
-WITH REPLACE;
-GO
-
-ALTER DATABASE FleetDesk SET MULTI_USER;
-GO
-```
-
-Antes de restaurar, pare o FleetDesk para evitar usuarios gravando durante a restauracao:
-
-```powershell
-.\scripts\stop-fleetdesk.ps1
-```
-
-Depois, inicie novamente:
-
-```powershell
-.\scripts\start-sqlserver-rubens.ps1
-```
-
-## Proximo passo
-
-Depois de validar o backup manual, podemos criar uma rotina diaria pelo Agendador de Tarefas do Windows ou pelo SQL Server Agent, se ele estiver disponivel na sua edicao do SQL Server.
+Para uma rotina mais completa, exporte periodicamente os arquivos do Supabase Storage pelo painel ou pela ferramenta oficial do Supabase.

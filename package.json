@@ -9,6 +9,8 @@
     "start:sqlserver": "node scripts/start-sqlserver.js",
     "start:supabase": "node server.js",
     "import:postgres": "node scripts/import-json-to-postgres.js",
+    "backup:json": "node scripts/backup-json.js",
+    "restore:json": "node scripts/restore-json.js",
     "change-password": "node scripts/change-app-user-password.js",
     "reset:operational": "node scripts/reset-operational-data.js",
     "check": "node --check server.js && node --check database.js && node --check app.js"
