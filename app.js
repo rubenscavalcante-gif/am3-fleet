@@ -11,6 +11,7 @@ const titles = {
   reception: "Recepção",
   schedule: "Agendamentos",
   quickExits: "Saídas rápidas",
+  mobile: "Modo motorista",
   vehicles: "Veículos",
   drivers: "Motoristas",
   fuel: "Abastecimentos",
@@ -137,6 +138,7 @@ function wireActions() {
   document.getElementById("cancelQuickExitClose").addEventListener("click", closeSettlementModal);
   document.getElementById("quickExitCloseForm").addEventListener("input", updateSettlementTotals);
   document.getElementById("quickExitCloseForm").addEventListener("submit", submitQuickExitSettlement);
+  document.getElementById("mobileCheckoutForm")?.addEventListener("submit", submitMobileCheckout);
   document.getElementById("refreshSystemStatus")?.addEventListener("click", refreshSystemStatus);
   document.getElementById("runBackup")?.addEventListener("click", runBackup);
   document.querySelectorAll("[data-receipt-target]").forEach((input) => {
@@ -282,7 +284,8 @@ function wireForms() {
     const payload = {
       name: values.name,
       email: values.email,
-      role: values.role
+      role: values.role,
+      driverId: values.driverId || ""
     };
     if (values.password) payload.password = values.password;
     await createRecord("users", payload, form, "Usuário salvo.");
@@ -331,6 +334,50 @@ async function createRecord(collection, payload, form, message) {
   setDefaultDates();
   renderAll();
   toast(editId ? "Registro atualizado." : message);
+}
+
+async function submitMobileCheckout(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = Object.fromEntries(new FormData(form).entries());
+  if (!values.vehicleId) {
+    toast("Nenhum veículo disponível para retirada.");
+    return;
+  }
+
+  try {
+    await api("/api/mobile/checkout", {
+      method: "POST",
+      body: {
+        vehicleId: values.vehicleId,
+        destination: values.destination,
+        reason: "Retirada pelo modo motorista"
+      }
+    });
+    await refreshData();
+    form.reset();
+    renderAll();
+    toast("Retirada registrada.");
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function returnMobileExit(id) {
+  const notes = window.prompt("Observação da devolução, se houver:", "Veículo devolvido à empresa.");
+  if (notes === null) return;
+
+  try {
+    await api("/api/mobile/return", {
+      method: "POST",
+      body: { quickExitId: id, notes }
+    });
+    await refreshData();
+    renderAll();
+    toast("Devolução registrada. Aguardando conferência da recepção.");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 async function removeRecord(collection, id) {
@@ -682,6 +729,7 @@ async function startAuthenticatedApp() {
     showApp();
     applyPermissions();
     renderAll();
+    if (currentUser?.role === "motorista") navigateTo("mobile");
     if (currentUser?.role === "admin") await refreshSystemStatus();
   } catch (error) {
     authToken = "";
@@ -874,6 +922,17 @@ function showApp() {
 
 function applyPermissions() {
   const isAdmin = currentUser?.role === "admin";
+  const isDriver = currentUser?.role === "motorista";
+  if (isDriver) {
+    document.querySelectorAll(".nav-item").forEach((item) => {
+      item.classList.toggle("is-hidden", item.dataset.view !== "mobile");
+    });
+    document.querySelector(".topbar-actions")?.classList.add("is-hidden");
+    return;
+  }
+
+  document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("is-hidden"));
+  document.querySelector(".topbar-actions")?.classList.remove("is-hidden");
   document.querySelectorAll('[data-view="users"]').forEach((item) => {
     item.classList.toggle("is-hidden", !isAdmin);
   });
@@ -941,6 +1000,7 @@ function renderAll() {
   renderChecklists();
   renderDocuments();
   renderExpirations();
+  renderMobileDriver();
   renderUsers();
   renderAudit();
   renderSystem();
@@ -955,6 +1015,10 @@ function renderSelects() {
   document.querySelectorAll('select[name="driverId"]').forEach((select) => {
     select.innerHTML = data.drivers.map((driver) => `<option value="${driver.id}">${escapeHtml(driver.name)}</option>`).join("");
   });
+  document.querySelectorAll('#userForm select[name="driverId"]').forEach((select) => {
+    select.innerHTML = '<option value="">Sem vínculo</option>' + data.drivers.map((driver) => `<option value="${driver.id}">${escapeHtml(driver.name)}</option>`).join("");
+  });
+  renderMobileVehicleSelect();
   renderReportFilters();
 }
 
@@ -1212,7 +1276,7 @@ function renderQuickExits() {
         </div>
         <div class="record-actions">
           <span class="status ${statusTone(item.status)}">${escapeHtml(item.status)}</span>
-          ${item.status === "Aberta" ? `<button class="secondary-button" type="button" data-close-exit="${item.id}">Finalizar</button>` : ""}
+          ${["aberta", "aguardando conferencia"].includes(normalizeStatus(item.status)) ? `<button class="secondary-button" type="button" data-close-exit="${item.id}">Finalizar</button>` : ""}
           <button class="secondary-button" type="button" data-edit="quickExits" data-id="${item.id}">Editar</button>
           ${removeButton("quickExits", item.id)}
         </div>
@@ -1445,15 +1509,110 @@ function renderUsers() {
     <article class="record">
       <div>
         <h3>${escapeHtml(user.name)}</h3>
-        <p>${escapeHtml(user.email)} · ${escapeHtml(user.role)}</p>
+        <p>${escapeHtml(user.email)} · ${escapeHtml(user.role)}${user.driverId ? ` · ${escapeHtml(driverLabel(findDriver(user.driverId)))}` : ""}</p>
       </div>
       <div class="record-actions">
-        <span class="status ${user.role === "admin" ? "ok" : ""}">${user.role === "admin" ? "Administrador" : "Operador"}</span>
+        <span class="status ${user.role === "admin" ? "ok" : user.role === "motorista" ? "warn" : ""}">${user.role === "admin" ? "Administrador" : user.role === "motorista" ? "Motorista" : "Operador"}</span>
         <button class="secondary-button" type="button" data-edit="users" data-id="${user.id}">Editar</button>
         ${removeButton("users", user.id)}
       </div>
     </article>
   `);
+}
+
+function renderMobileVehicleSelect() {
+  const select = document.querySelector('#mobileCheckoutForm select[name="vehicleId"]');
+  if (!select) return;
+
+  const available = data.vehicles.filter((vehicle) => {
+    const computed = computedVehicleStatus(vehicle);
+    return computed.status === "Disponível" || computed.status === "Agendada";
+  });
+
+  select.innerHTML = available.length
+    ? available.map((vehicle) => `<option value="${vehicle.id}">${escapeHtml(vehicle.plate)} · ${escapeHtml(vehicle.model)}</option>`).join("")
+    : '<option value="">Nenhum veículo disponível</option>';
+}
+
+function renderMobileDriver() {
+  const context = document.getElementById("mobileDriverContext");
+  const status = document.getElementById("mobileDriverStatus");
+  const openList = document.getElementById("mobileOpenExit");
+  const busyList = document.getElementById("mobileBusyVehicles");
+  const form = document.getElementById("mobileCheckoutForm");
+  if (!context || !status || !openList || !busyList || !form) return;
+
+  const driver = currentDriver();
+  if (!driver) {
+    status.textContent = "Sem vínculo";
+    status.className = "status danger";
+    context.innerHTML = `
+      <div class="mobile-message">
+        <strong>Usuário sem motorista vinculado</strong>
+        <p>Peça para a recepção editar seu usuário e selecionar o motorista correspondente.</p>
+      </div>
+    `;
+    form.classList.add("is-hidden");
+    openList.innerHTML = '<div class="empty-state">Nenhuma saída vinculada.</div>';
+    busyList.innerHTML = '<div class="empty-state">Sem consulta disponível.</div>';
+    return;
+  }
+
+  form.classList.remove("is-hidden");
+  const ownOpenExit = (data.quickExits || []).find((item) => item.driverId === driver.id && normalizeStatus(item.status) === "aberta");
+  status.textContent = ownOpenExit ? "Em uso" : "Livre";
+  status.className = `status ${ownOpenExit ? "warn" : "ok"}`;
+  context.innerHTML = `
+    <div class="mobile-message">
+      <strong>Olá, ${escapeHtml(driver.name)}</strong>
+      <p>${ownOpenExit ? "Você tem uma saída aberta. Marque a devolução quando o veículo voltar à empresa." : "Nenhum veículo em aberto para você agora."}</p>
+    </div>
+  `;
+
+  if (ownOpenExit) {
+    const vehicle = findVehicle(ownOpenExit.vehicleId);
+    openList.innerHTML = `
+      <article class="record mobile-record">
+        <div>
+          <h3>${escapeHtml(vehicleLabel(vehicle))}</h3>
+          <p>Retirado em ${formatDateTime(ownOpenExit.departureAt)} · ${escapeHtml(ownOpenExit.destination || "")}</p>
+        </div>
+        <div class="record-actions">
+          <span class="status warn">Aberta</span>
+          <button class="primary-button" type="button" data-mobile-return="${ownOpenExit.id}">Marcar devolução</button>
+        </div>
+      </article>
+    `;
+    openList.querySelector("[data-mobile-return]")?.addEventListener("click", (event) => returnMobileExit(event.currentTarget.dataset.mobileReturn));
+  } else {
+    openList.innerHTML = '<div class="empty-state">Você não possui saída aberta.</div>';
+  }
+
+  const busy = (data.quickExits || []).filter((item) => normalizeStatus(item.status) === "aberta");
+  renderList("mobileBusyVehicles", busy, (item) => {
+    const driverItem = findDriver(item.driverId);
+    return `
+      <article class="record mobile-record">
+        <div>
+          <h3>${escapeHtml(vehicleLabel(findVehicle(item.vehicleId)))}</h3>
+          <p>Motorista: ${escapeHtml(driverLabel(driverItem))} · Retirado: ${formatDateTime(item.departureAt)} · Destino: ${escapeHtml(item.destination || "")}${driverItem?.phone ? ` · Tel: ${escapeHtml(driverItem.phone)}` : ""}</p>
+        </div>
+        <div class="record-actions">
+          <span class="status warn">Em uso</span>
+        </div>
+      </article>
+    `;
+  });
+}
+
+function currentDriver() {
+  if (currentUser?.driverId) {
+    const linked = findDriver(currentUser.driverId);
+    if (linked) return linked;
+  }
+
+  const userName = normalizeText(currentUser?.name);
+  return data.drivers.find((driver) => normalizeText(driver.name) === userName) || null;
 }
 
 function renderAudit() {
@@ -1837,6 +1996,10 @@ function normalizeStatus(value) {
     .toLowerCase();
 }
 
+function normalizeText(value) {
+  return normalizeStatus(value).replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 function isCompletedStatus(value) {
   return ["concluida", "concluido", "finalizada", "finalizado"].includes(normalizeStatus(value));
 }
@@ -1878,6 +2041,9 @@ function renderList(id, rows, template) {
   });
   element.querySelectorAll("[data-close-exit]").forEach((button) => {
     button.addEventListener("click", () => closeQuickExit(button.dataset.closeExit));
+  });
+  element.querySelectorAll("[data-mobile-return]").forEach((button) => {
+    button.addEventListener("click", () => returnMobileExit(button.dataset.mobileReturn));
   });
   element.querySelectorAll("[data-start-quick-exit]").forEach((button) => {
     button.addEventListener("click", () => startQuickExitForVehicle(button.dataset.startQuickExit));
@@ -2048,9 +2214,10 @@ function entityLabel(entity) {
 }
 
 function statusTone(status) {
-  if (["Disponível", "Ativo", "Concluída", "Concluído"].includes(status)) return "ok";
-  if (["Manutenção", "Bloqueado", "Cancelada"].includes(status)) return "danger";
-  if (["Agendada", "Férias", "Em uso", "Com ressalva", "Aberta"].includes(status)) return "warn";
+  const normalized = normalizeStatus(status);
+  if (["disponivel", "ativo", "concluida", "concluido"].includes(normalized)) return "ok";
+  if (["manutencao", "bloqueado", "cancelada"].includes(normalized)) return "danger";
+  if (["agendada", "ferias", "em uso", "com ressalva", "aberta", "aguardando conferencia"].includes(normalized)) return "warn";
   return "";
 }
 
@@ -2067,7 +2234,7 @@ function computedVehicleStatus(vehicle) {
   const activeBooking = data.bookings.find((booking) => booking.vehicleId === vehicle.id && isNowBetween(booking.start, booking.end));
   if (activeBooking) return { status: "Em uso", reason: activeBooking.destination };
 
-  const activeQuickExit = (data.quickExits || []).find((item) => item.vehicleId === vehicle.id && item.status === "Aberta");
+  const activeQuickExit = (data.quickExits || []).find((item) => item.vehicleId === vehicle.id && normalizeStatus(item.status) === "aberta");
   if (activeQuickExit) return { status: "Em uso", reason: `Saída rápida: ${activeQuickExit.destination}` };
 
   const nextBooking = data.bookings

@@ -61,6 +61,10 @@
             <span class="icon">↗</span>
             Saídas rápidas
           </button>
+          <button class="nav-item" data-view="mobile" type="button">
+            <span class="icon">M</span>
+            Modo motorista
+          </button>
           <button class="nav-item" data-view="vehicles" type="button">
             <span class="icon">▣</span>
             Veículos
@@ -618,6 +622,55 @@
           </div>
         </section>
 
+        <section id="mobile" class="view" aria-labelledby="viewTitle">
+          <div class="mobile-driver-shell">
+            <section class="panel mobile-driver-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">PWA</p>
+                  <h2>Modo motorista</h2>
+                </div>
+                <span id="mobileDriverStatus" class="status">Carregando</span>
+              </div>
+              <div id="mobileDriverContext" class="mobile-context"></div>
+            </section>
+
+            <section class="panel mobile-driver-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Retirada</p>
+                  <h2>Retirar veículo</h2>
+                </div>
+              </div>
+              <form id="mobileCheckoutForm" class="mobile-form">
+                <label>Veículo<select name="vehicleId" required></select></label>
+                <label>Destino / motivo<input name="destination" placeholder="Cliente, entrega, reunião..." required /></label>
+                <button class="primary-button" type="submit">Confirmar retirada</button>
+              </form>
+            </section>
+
+            <section class="panel mobile-driver-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Devolução</p>
+                  <h2>Minha saída aberta</h2>
+                </div>
+              </div>
+              <div id="mobileOpenExit" class="record-list"></div>
+            </section>
+
+            <section class="panel mobile-driver-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Conflitos</p>
+                  <h2>Veículos em uso</h2>
+                </div>
+              </div>
+              <div id="mobileBusyVehicles" class="record-list"></div>
+            </section>
+          </div>
+        </section>
+
         <section id="users" class="view" aria-labelledby="viewTitle">
           <div class="content-grid form-and-list">
             <form id="userForm" class="panel form-panel">
@@ -634,7 +687,9 @@
                 <label>Perfil<select name="role" required>
                   <option value="admin">Administrador</option>
                   <option value="operador">Operador</option>
+                  <option value="motorista">Motorista</option>
                 </select></label>
+                <label class="wide">Motorista vinculado<select name="driverId"></select></label>
               </div>
               <button class="primary-button" type="submit">Salvar usuário</button>
             </form>

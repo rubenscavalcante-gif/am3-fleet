@@ -120,6 +120,91 @@ async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/mobile/checkout") {
+    const body = await readJson(request);
+    const db = await readDb();
+    const driver = userDriver(db, user);
+    if (!driver) {
+      sendJson(response, 400, { error: "Usuário sem motorista vinculado. Peça para a recepção vincular seu usuário a um motorista." });
+      return;
+    }
+
+    const activeOwnExit = (db.quickExits || []).find((item) => item.driverId === driver.id && normalizeStatus(item.status) === "aberta");
+    if (activeOwnExit) {
+      sendJson(response, 409, { error: "Você já possui uma saída aberta. Marque a devolução antes de retirar outro veículo.", activeExit: mobileExitInfo(db, activeOwnExit) });
+      return;
+    }
+
+    const vehicle = db.vehicles.find((item) => item.id === body.vehicleId);
+    if (!vehicle) {
+      sendJson(response, 404, { error: "Veículo não encontrado." });
+      return;
+    }
+
+    const activeVehicleExit = (db.quickExits || []).find((item) => item.vehicleId === vehicle.id && normalizeStatus(item.status) === "aberta");
+    if (activeVehicleExit) {
+      sendJson(response, 409, {
+        error: "Veículo já está em uso.",
+        conflict: mobileExitInfo(db, activeVehicleExit)
+      });
+      return;
+    }
+
+    if (["manutencao", "inativo"].includes(normalizeStatus(vehicle.status))) {
+      sendJson(response, 409, { error: `Veículo indisponível: ${vehicle.status}.` });
+      return;
+    }
+
+    const record = normalizeRecord("quickExits", {
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      departureAt: new Date().toISOString().slice(0, 16),
+      returnedAt: "",
+      destination: body.destination || "Retirada pelo motorista",
+      reason: body.reason || "Retirada pelo modo motorista",
+      advanceAmount: 0,
+      advancePurpose: "",
+      fuelExpense: 0,
+      foodExpense: 0,
+      otherExpense: 0,
+      returnedAmount: 0,
+      receiptRef: "",
+      notes: "Criada pelo modo motorista.",
+      status: "Aberta"
+    });
+
+    db.quickExits = db.quickExits || [];
+    db.quickExits.unshift(record);
+    addAuditLog(db, user, "retirou", "quickExits", record.id, `${vehicle.plate} por ${driver.name}`);
+    await writeDb(db);
+    sendJson(response, 201, { quickExit: record });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/mobile/return") {
+    const body = await readJson(request);
+    const db = await readDb();
+    const driver = userDriver(db, user);
+    if (!driver) {
+      sendJson(response, 400, { error: "Usuário sem motorista vinculado." });
+      return;
+    }
+
+    const exit = (db.quickExits || []).find((item) => item.id === body.quickExitId && item.driverId === driver.id && normalizeStatus(item.status) === "aberta");
+    if (!exit) {
+      sendJson(response, 404, { error: "Saída aberta não encontrada para este motorista." });
+      return;
+    }
+
+    exit.returnedAt = new Date().toISOString().slice(0, 16);
+    exit.status = "Aguardando conferência";
+    exit.notes = [exit.notes, body.notes || "Devolução registrada pelo modo motorista."].filter(Boolean).join(" ");
+    addAuditLog(db, user, "devolveu", "quickExits", exit.id, summarizeRecord("quickExits", exit));
+    await writeDb(db);
+    sendJson(response, 200, { quickExit: exit });
+    return;
+  }
+
   if (request.method === "GET" && url.pathname.startsWith("/api/files/")) {
     await serveStoredFile(request, response, url.pathname.slice("/api/files/".length));
     return;
@@ -178,6 +263,10 @@ async function handleApi(request, response) {
 
   if (parts.length === 2 && parts[0] === "api" && collections.has(parts[1]) && request.method === "POST") {
     const collection = parts[1];
+    if (user.role === "motorista") {
+      sendJson(response, 403, { error: "Use o Modo motorista para registrar retirada e devolução." });
+      return;
+    }
     if (collection === "users" && user.role !== "admin") {
       sendJson(response, 403, { error: "Apenas administradores podem gerenciar usuários." });
       return;
@@ -195,6 +284,10 @@ async function handleApi(request, response) {
 
   if (parts.length === 3 && parts[0] === "api" && collections.has(parts[1]) && request.method === "PUT") {
     const collection = parts[1];
+    if (user.role === "motorista") {
+      sendJson(response, 403, { error: "Use o Modo motorista para registrar retirada e devolução." });
+      return;
+    }
     if (collection === "users" && user.role !== "admin") {
       sendJson(response, 403, { error: "Apenas administradores podem gerenciar usuários." });
       return;
@@ -616,6 +709,7 @@ function normalizeRecord(collection, body, keepId = false) {
 
   if (collection === "users") {
     record.email = String(record.email || "").toLowerCase();
+    record.driverId = String(record.driverId || "");
     if (record.password) {
       record.passwordHash = hashPassword(record.password);
       delete record.password;
@@ -706,8 +800,45 @@ function publicUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    driverId: user.driverId || ""
   };
+}
+
+function userDriver(db, user) {
+  if (user.driverId) {
+    const linked = db.drivers.find((driver) => driver.id === user.driverId);
+    if (linked) return linked;
+  }
+
+  const normalizedUserName = normalizeText(user.name);
+  return db.drivers.find((driver) => normalizeText(driver.name) === normalizedUserName) || null;
+}
+
+function mobileExitInfo(db, exit) {
+  const driver = db.drivers.find((item) => item.id === exit.driverId);
+  const vehicle = db.vehicles.find((item) => item.id === exit.vehicleId);
+  return {
+    id: exit.id,
+    vehicle: vehicle ? `${vehicle.plate} - ${vehicle.model}` : exit.vehicleId,
+    driver: driver?.name || exit.driverId,
+    phone: driver?.phone || "",
+    departureAt: exit.departureAt || "",
+    destination: exit.destination || "",
+    status: exit.status || ""
+  };
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeStatus(value) {
+  return normalizeText(value).replace(/[^a-z0-9]+/g, "");
 }
 
 function uid(prefix) {
