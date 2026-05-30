@@ -164,7 +164,7 @@ async function handleApi(request, response) {
     const record = normalizeRecord("quickExits", {
       vehicleId: vehicle.id,
       driverId: driver.id,
-      departureAt: new Date().toISOString().slice(0, 16),
+      departureAt: localDateTimeValue(),
       returnedAt: "",
       destination: body.destination || "Retirada pelo motorista",
       reason: body.reason || "Retirada pelo modo motorista",
@@ -203,7 +203,7 @@ async function handleApi(request, response) {
       return;
     }
 
-    exit.returnedAt = new Date().toISOString().slice(0, 16);
+    exit.returnedAt = localDateTimeValue();
     exit.status = "Aguardando conferência";
     exit.notes = [exit.notes, body.notes || "Devolução registrada pelo modo motorista."].filter(Boolean).join(" ");
     addAuditLog(db, user, "devolveu", "quickExits", exit.id, summarizeRecord("quickExits", exit));
@@ -892,6 +892,20 @@ function normalizeText(value) {
 
 function normalizeStatus(value) {
   return normalizeText(value).replace(/[^a-z0-9]+/g, "");
+}
+
+function localDateTimeValue(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: process.env.APP_TIME_ZONE || "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}T${value.hour}:${value.minute}`;
 }
 
 function uid(prefix) {
