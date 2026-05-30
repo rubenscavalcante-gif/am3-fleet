@@ -76,6 +76,21 @@ button {
     url("https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=80") center / cover;
 }
 
+.boot-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 22px;
+  background: var(--nav);
+}
+
+.boot-card {
+  border-radius: 8px;
+  background: #fff;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
 .login-card {
   display: grid;
   gap: 16px;

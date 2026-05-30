@@ -56,6 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireNavigation();
   wireForms();
   wireActions();
+  wireSearchAndGlobalActions();
   wireAutoRefresh();
   setDefaultDates();
 
@@ -122,6 +123,14 @@ function wireActions() {
   });
 
   document.getElementById("logoutButton").addEventListener("click", async () => {
+    await logout();
+  });
+  document.getElementById("mobileLogoutButton")?.addEventListener("click", async () => {
+    await logout();
+  });
+}
+
+async function logout() {
     try {
       await api("/api/logout", { method: "POST" });
     } catch {
@@ -133,8 +142,9 @@ function wireActions() {
     eventSource?.close();
     eventSource = null;
     showLogin();
-  });
+}
 
+function wireSearchAndGlobalActions() {
   document.getElementById("globalSearch").addEventListener("input", (event) => {
     searchTerm = event.target.value.trim().toLowerCase();
     renderAll();
@@ -955,11 +965,15 @@ function fileToBase64(file) {
 }
 
 function showLogin() {
+  document.body.classList.remove("booting");
+  document.getElementById("bootScreen")?.classList.add("is-hidden");
   document.getElementById("loginScreen").classList.remove("is-hidden");
   document.getElementById("appShell").classList.add("is-hidden");
 }
 
 function showApp() {
+  document.body.classList.remove("booting");
+  document.getElementById("bootScreen")?.classList.add("is-hidden");
   document.getElementById("loginScreen").classList.add("is-hidden");
   document.getElementById("appShell").classList.remove("is-hidden");
 }

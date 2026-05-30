@@ -14,8 +14,20 @@
     <link rel="apple-touch-icon" href="assets/pwa-icon-192.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
-    <section id="loginScreen" class="login-screen">
+  <body class="booting">
+    <section id="bootScreen" class="boot-screen">
+      <div class="boot-card">
+        <div class="brand login-brand">
+          <div class="brand-mark" aria-hidden="true"><img src="assets/am3-fleet-icon.png" alt="" /></div>
+          <div>
+            <strong>AM3 Fleet</strong>
+            <span>Carregando...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="loginScreen" class="login-screen is-hidden">
       <form id="loginForm" class="login-card">
         <div class="brand login-brand">
           <div class="brand-mark" aria-hidden="true"><img src="assets/am3-fleet-icon.png" alt="" /></div>
@@ -630,7 +642,10 @@
                   <p class="eyebrow">PWA</p>
                   <h2>Modo motorista</h2>
                 </div>
-                <span id="mobileDriverStatus" class="status">Carregando</span>
+                <div class="record-actions">
+                  <span id="mobileDriverStatus" class="status">Carregando</span>
+                  <button id="mobileLogoutButton" class="secondary-button" type="button">Sair</button>
+                </div>
               </div>
               <div id="mobileDriverContext" class="mobile-context"></div>
             </section>

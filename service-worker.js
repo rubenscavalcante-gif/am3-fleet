@@ -1,4 +1,4 @@
-const CACHE_NAME = "am3-fleet-shell-v5";
+const CACHE_NAME = "am3-fleet-shell-v6";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
