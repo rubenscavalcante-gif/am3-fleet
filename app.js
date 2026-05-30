@@ -49,6 +49,7 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 const dateOnly = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
 
 document.addEventListener("DOMContentLoaded", async () => {
+  registerServiceWorker();
   wireNavigation();
   wireForms();
   wireActions();
@@ -60,6 +61,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     showLogin();
   }
 });
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;
+  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+}
 
 function wireNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {

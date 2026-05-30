@@ -24,7 +24,8 @@ const mimeTypes = {
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
+  ".webmanifest": "application/manifest+json; charset=utf-8"
 };
 
 const server = http.createServer(async (request, response) => {
