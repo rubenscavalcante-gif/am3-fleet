@@ -2141,19 +2141,19 @@ function formatBytes(value) {
 
 function exportCsv() {
   const lines = [
-    ["tipo", "identificador", "descricao", "data", "valor"],
-    ...data.vehicles.map((item) => ["veiculo", item.plate, item.model, "", ""]),
-    ...data.drivers.map((item) => ["motorista", item.name, item.department, item.licenseDue, ""]),
-    ...data.bookings.map((item) => ["agendamento", vehicleLabel(findVehicle(item.vehicleId)), `${driverLabel(findDriver(item.driverId))} - ${item.destination}`, item.start, ""]),
-    ...(data.quickExits || []).map((item) => ["saida_rapida", vehicleLabel(findVehicle(item.vehicleId)), `${driverLabel(findDriver(item.driverId))} - ${item.destination} - ${item.reason} - combustivel ${item.fuelExpense || 0} - alimentacao ${item.foodExpense || 0} - outras ${item.otherExpense || 0} - devolvido ${item.returnedAmount || 0}`, item.departureAt, item.advanceAmount]),
-    ...data.fuel.map((item) => ["abastecimento", vehicleLabel(findVehicle(item.vehicleId)), item.station, item.date, item.total]),
-    ...data.maintenance.map((item) => ["manutencao", vehicleLabel(findVehicle(item.vehicleId)), item.description, item.date, item.cost]),
-    ...(data.checklists || []).map((item) => ["checklist", vehicleLabel(findVehicle(item.vehicleId)), `${item.type} - ${driverLabel(findDriver(item.driverId))}`, item.date, item.status]),
-    ...(data.documents || []).map((item) => ["documento", documentOwnerLabel(item), `${item.type} - ${item.name}`, item.dueDate, item.fileRef])
+    ["modulo", "placa_ou_nome", "modelo_departamento", "motorista", "destino_local", "status_tipo", "data_inicio", "data_fim", "valor_adiantado", "combustivel", "alimentacao", "outras_despesas", "valor_devolvido", "valor_total", "observacoes"],
+    ...data.vehicles.map((item) => ["veiculo", item.plate, item.model, "", item.costCenter, item.status, "", "", "", "", "", "", "", "", ""]),
+    ...data.drivers.map((item) => ["motorista", item.name, item.department, "", "", item.status, item.licenseDue, "", "", "", "", "", "", "", `CNH ${item.license || ""}`]),
+    ...data.bookings.map((item) => ["agendamento", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.purpose, item.start, item.end, "", "", "", "", "", "", ""]),
+    ...(data.quickExits || []).map((item) => ["saida_rapida", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.status, item.departureAt, item.returnedAt || "", item.advanceAmount || 0, item.fuelExpense || 0, item.foodExpense || 0, item.otherExpense || 0, item.returnedAmount || 0, item.spentAmount || 0, item.reason || item.notes || ""]),
+    ...data.fuel.map((item) => ["abastecimento", vehicleLabel(findVehicle(item.vehicleId)), "", "", item.station, "abastecimento", item.date, "", "", "", "", "", "", item.total, `${item.liters || 0} litros`]),
+    ...data.maintenance.map((item) => ["manutencao", vehicleLabel(findVehicle(item.vehicleId)), "", "", "", item.status, item.date, item.nextDue || "", "", "", "", "", "", item.cost, `${item.type} - ${item.description}`]),
+    ...(data.checklists || []).map((item) => ["checklist", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), "", item.status, item.date, "", "", "", "", "", "", "", item.type]),
+    ...(data.documents || []).map((item) => ["documento", documentOwnerLabel(item), item.name, "", "", item.type, item.dueDate, "", "", "", "", "", "", "", item.fileRef || item.notes || ""])
   ];
 
-  const csv = lines.map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const csv = `sep=;\r\n${lines.map((line) => line.map(csvCell).join(";")).join("\r\n")}`;
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -2161,6 +2161,11 @@ function exportCsv() {
   link.click();
   URL.revokeObjectURL(url);
   toast("CSV gerado.");
+}
+
+function csvCell(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, " ").replaceAll('"', '""');
+  return `"${text}"`;
 }
 
 function toast(message) {
