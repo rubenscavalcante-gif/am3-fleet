@@ -95,7 +95,17 @@ async function handleApi(request, response) {
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, { userId: user.id, createdAt: Date.now() });
+    const session = {
+      id: token,
+      userId: user.id,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+    db.sessions = db.sessions || [];
+    db.sessions = db.sessions.filter((item) => new Date(item.expiresAt || 0) > new Date());
+    db.sessions.push(session);
+    await writeDb(db);
+    sessions.set(token, { userId: user.id, createdAt: Date.now(), expiresAt: new Date(session.expiresAt).getTime() });
     sendJson(response, 200, { token, user: publicUser(user) });
     return;
   }
@@ -103,6 +113,11 @@ async function handleApi(request, response) {
   if (request.method === "POST" && url.pathname === "/api/logout") {
     const token = getToken(request);
     if (token) sessions.delete(token);
+    if (token) {
+      const db = await readDb();
+      db.sessions = (db.sessions || []).filter((item) => item.id !== token);
+      await writeDb(db);
+    }
     sendJson(response, 200, { ok: true });
     return;
   }
@@ -516,7 +531,7 @@ async function createJsonBackup(db) {
     app: "AM3 Fleet",
     version: JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8")).version || "",
     database: await dbInfo(),
-    data: db
+    data: { ...db, sessions: [] }
   };
 
   await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf-8");
@@ -553,7 +568,7 @@ async function latestBackupInfo() {
 
 async function requireAuth(request, response) {
   const token = getToken(request);
-  const session = token ? sessions.get(token) : undefined;
+  const session = token ? await findSession(token) : undefined;
 
   if (!session) {
     sendJson(response, 401, { error: "Sessão expirada. Faça login novamente." });
@@ -568,6 +583,27 @@ async function requireAuth(request, response) {
   }
 
   return user;
+}
+
+async function findSession(token) {
+  const memorySession = sessions.get(token);
+  if (memorySession && (!memorySession.expiresAt || memorySession.expiresAt > Date.now())) return memorySession;
+  if (memorySession) sessions.delete(token);
+
+  const db = await readDb();
+  const persisted = (db.sessions || []).find((item) => item.id === token);
+  if (!persisted) return null;
+
+  const expiresAt = new Date(persisted.expiresAt || 0).getTime();
+  if (!expiresAt || expiresAt <= Date.now()) {
+    db.sessions = (db.sessions || []).filter((item) => item.id !== token);
+    await writeDb(db);
+    return null;
+  }
+
+  const session = { userId: persisted.userId, createdAt: new Date(persisted.createdAt || Date.now()).getTime(), expiresAt };
+  sessions.set(token, session);
+  return session;
 }
 
 function openEventStream(request, response, user) {

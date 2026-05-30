@@ -6,7 +6,7 @@ const root = __dirname;
 const dataDir = path.join(root, "data");
 const sqlitePath = path.join(dataDir, "fleetdesk.sqlite");
 const seedPath = path.join(dataDir, "db.json");
-const collectionNames = ["users", "vehicles", "drivers", "bookings", "quickExits", "fuel", "maintenance", "checklists", "documents", "auditLogs"];
+const collectionNames = ["users", "vehicles", "drivers", "bookings", "quickExits", "fuel", "maintenance", "checklists", "documents", "auditLogs", "sessions"];
 const dbType = (process.env.DB_TYPE || "sqlite").toLowerCase();
 const sqlServerMode = (process.env.DB_SQLSERVER_MODE || "records").toLowerCase();
 
