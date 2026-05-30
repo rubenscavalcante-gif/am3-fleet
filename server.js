@@ -12,6 +12,7 @@ const storageDriver = (process.env.STORAGE_DRIVER || "local").toLowerCase();
 const supabaseStorageBucket = process.env.SUPABASE_STORAGE_BUCKET || "am3-fleet";
 const serverStartedAt = new Date().toISOString();
 const sessions = new Map();
+const eventClients = new Set();
 const collections = new Set(["vehicles", "drivers", "bookings", "quickExits", "fuel", "maintenance", "checklists", "documents", "users"]);
 
 const mimeTypes = {
@@ -120,6 +121,11 @@ async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/events") {
+    openEventStream(request, response, user);
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/mobile/checkout") {
     const body = await readJson(request);
     const db = await readDb();
@@ -177,6 +183,7 @@ async function handleApi(request, response) {
     db.quickExits.unshift(record);
     addAuditLog(db, user, "retirou", "quickExits", record.id, `${vehicle.plate} por ${driver.name}`);
     await writeDb(db);
+    notifyDataChanged("quickExits", "checkout", record.id);
     sendJson(response, 201, { quickExit: record });
     return;
   }
@@ -201,6 +208,7 @@ async function handleApi(request, response) {
     exit.notes = [exit.notes, body.notes || "Devolução registrada pelo modo motorista."].filter(Boolean).join(" ");
     addAuditLog(db, user, "devolveu", "quickExits", exit.id, summarizeRecord("quickExits", exit));
     await writeDb(db);
+    notifyDataChanged("quickExits", "return", exit.id);
     sendJson(response, 200, { quickExit: exit });
     return;
   }
@@ -228,6 +236,7 @@ async function handleApi(request, response) {
     const db = await readDb();
     addAuditLog(db, user, "gerou backup", "sistema", "backup", "Backup manual gerado");
     await writeDb(db);
+    notifyDataChanged("system", "backup", "backup");
     const backup = await createJsonBackup(db);
     sendJson(response, 201, backup);
     return;
@@ -257,6 +266,7 @@ async function handleApi(request, response) {
     const fresh = await readDemoDb();
     addAuditLog(fresh, user, "restaurou", "sistema", "demo", "Restaurou dados de demonstração");
     await writeDb(fresh);
+    notifyDataChanged("system", "reset", "demo");
     sendJson(response, 200, publicData(fresh, user));
     return;
   }
@@ -278,6 +288,7 @@ async function handleApi(request, response) {
     applySideEffects(db, collection, record);
     addAuditLog(db, user, "criou", collection, record.id, summarizeRecord(collection, record));
     await writeDb(db);
+    notifyDataChanged(collection, "create", record.id);
     sendJson(response, 201, record);
     return;
   }
@@ -305,6 +316,7 @@ async function handleApi(request, response) {
     applySideEffects(db, collection, updated);
     addAuditLog(db, user, "editou", collection, updated.id, summarizeRecord(collection, updated));
     await writeDb(db);
+    notifyDataChanged(collection, "update", updated.id);
     sendJson(response, 200, collection === "users" ? publicUser(updated) : updated);
     return;
   }
@@ -326,6 +338,7 @@ async function handleApi(request, response) {
     cascadeDelete(db, collection, id);
     addAuditLog(db, user, "removeu", collection, id, summarizeRecord(collection, removed || { id }));
     await writeDb(db);
+    notifyDataChanged(collection, "delete", id);
     sendJson(response, 200, publicData(db, user));
     return;
   }
@@ -557,9 +570,49 @@ async function requireAuth(request, response) {
   return user;
 }
 
+function openEventStream(request, response, user) {
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*"
+  });
+  response.write(`event: ready\ndata: ${JSON.stringify({ ok: true, userId: user.id })}\n\n`);
+
+  const client = { response };
+  eventClients.add(client);
+  const keepAlive = setInterval(() => {
+    response.write(`event: ping\ndata: ${Date.now()}\n\n`);
+  }, 25000);
+
+  request.on("close", () => {
+    clearInterval(keepAlive);
+    eventClients.delete(client);
+  });
+}
+
+function notifyDataChanged(collection, action, id) {
+  const payload = JSON.stringify({
+    collection,
+    action,
+    id,
+    at: new Date().toISOString()
+  });
+
+  for (const client of eventClients) {
+    try {
+      client.response.write(`event: data-changed\ndata: ${payload}\n\n`);
+    } catch {
+      eventClients.delete(client);
+    }
+  }
+}
+
 function getToken(request) {
   const header = request.headers.authorization || "";
-  return header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (header.startsWith("Bearer ")) return header.slice(7);
+  const url = new URL(request.url, `http://${request.headers.host}`);
+  return url.searchParams.get("token") || "";
 }
 
 async function readJson(request) {

@@ -44,6 +44,7 @@ let currentUser = null;
 let closingQuickExitId = null;
 let systemStatus = null;
 let lastAutoRefreshAt = 0;
+let eventSource = null;
 const editing = {};
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -76,6 +77,19 @@ function wireAutoRefresh() {
     if (!document.hidden) autoRefreshData(true);
   });
   window.addEventListener("focus", () => autoRefreshData(true));
+}
+
+function connectRealtimeEvents() {
+  if (!authToken || typeof EventSource === "undefined") return;
+  if (eventSource) eventSource.close();
+
+  eventSource = new EventSource(`${apiBase || ""}/api/events?token=${encodeURIComponent(authToken)}`);
+  eventSource.addEventListener("data-changed", () => autoRefreshData(true));
+  eventSource.addEventListener("error", () => {
+    eventSource?.close();
+    eventSource = null;
+    if (authToken) window.setTimeout(connectRealtimeEvents, 5000);
+  });
 }
 
 function wireNavigation() {
@@ -116,6 +130,8 @@ function wireActions() {
     authToken = "";
     currentUser = null;
     localStorage.removeItem(tokenKey);
+    eventSource?.close();
+    eventSource = null;
     showLogin();
   });
 
@@ -739,11 +755,14 @@ async function startAuthenticatedApp() {
     showApp();
     applyPermissions();
     renderAll();
+    connectRealtimeEvents();
     if (currentUser?.role === "motorista") navigateTo("mobile");
     if (currentUser?.role === "admin") await refreshSystemStatus();
   } catch (error) {
     authToken = "";
     localStorage.removeItem(tokenKey);
+    eventSource?.close();
+    eventSource = null;
     showLogin();
     toast(error.message);
   }
