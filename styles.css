@@ -423,6 +423,10 @@ select:focus {
   margin-bottom: 14px;
 }
 
+.form-grid.single-column {
+  grid-template-columns: 1fr;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -602,6 +606,10 @@ label {
   background: #fff;
   padding: 20px;
   box-shadow: var(--shadow);
+}
+
+.password-modal {
+  width: min(460px, 100%);
 }
 
 .settlement-summary,

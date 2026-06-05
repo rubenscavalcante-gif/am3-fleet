@@ -128,6 +128,13 @@ function wireActions() {
   document.getElementById("mobileLogoutButton")?.addEventListener("click", async () => {
     await logout();
   });
+  document.getElementById("changePasswordButton")?.addEventListener("click", openChangePasswordModal);
+  document.getElementById("mobileChangePasswordButton")?.addEventListener("click", openChangePasswordModal);
+  document.getElementById("cancelChangePassword")?.addEventListener("click", closeChangePasswordModal);
+  document.getElementById("changePasswordModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "changePasswordModal") closeChangePasswordModal();
+  });
+  document.getElementById("changePasswordForm")?.addEventListener("submit", changePassword);
 }
 
 async function logout() {
@@ -142,6 +149,43 @@ async function logout() {
     eventSource?.close();
     eventSource = null;
     showLogin();
+}
+
+function openChangePasswordModal() {
+  const form = document.getElementById("changePasswordForm");
+  form?.reset();
+  document.getElementById("changePasswordModal")?.classList.remove("is-hidden");
+  form?.elements.currentPassword?.focus();
+}
+
+function closeChangePasswordModal() {
+  document.getElementById("changePasswordModal")?.classList.add("is-hidden");
+  document.getElementById("changePasswordForm")?.reset();
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = Object.fromEntries(new FormData(form).entries());
+
+  if (values.newPassword !== values.confirmPassword) {
+    toast("A confirmação da nova senha não confere.");
+    return;
+  }
+
+  try {
+    await api("/api/me/password", {
+      method: "POST",
+      body: {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword
+      }
+    });
+    closeChangePasswordModal();
+    toast("Senha alterada.");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 function wireSearchAndGlobalActions() {

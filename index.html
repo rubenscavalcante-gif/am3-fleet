@@ -144,6 +144,7 @@
               <span>Buscar</span>
               <input id="globalSearch" type="search" placeholder="Placa, motorista, destino..." />
             </label>
+            <button id="changePasswordButton" class="secondary-button" type="button">Alterar senha</button>
             <button id="logoutButton" class="secondary-button" type="button">Sair</button>
             <button id="exportData" class="primary-button" type="button">Exportar CSV</button>
           </div>
@@ -644,6 +645,7 @@
                 </div>
                 <div class="record-actions">
                   <span id="mobileDriverStatus" class="status">Carregando</span>
+                  <button id="mobileChangePasswordButton" class="secondary-button" type="button">Senha</button>
                   <button id="mobileLogoutButton" class="secondary-button" type="button">Sair</button>
                 </div>
               </div>
@@ -802,6 +804,26 @@
         <div class="modal-actions">
           <button id="cancelQuickExitClose" class="secondary-button" type="button">Cancelar</button>
           <button class="primary-button" type="submit">Concluir conferência</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="changePasswordModal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle">
+      <form id="changePasswordForm" class="modal-panel password-modal">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Acesso</p>
+            <h2 id="changePasswordTitle">Alterar senha</h2>
+          </div>
+        </div>
+        <div class="form-grid single-column">
+          <label>Senha atual<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+          <label>Nova senha<input name="newPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
+          <label>Confirmar nova senha<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelChangePassword" class="secondary-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Salvar senha</button>
         </div>
       </form>
     </div>

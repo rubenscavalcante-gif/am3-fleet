@@ -131,6 +131,36 @@ async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/me/password") {
+    const body = await readJson(request);
+    if (!body.currentPassword || !body.newPassword) {
+      sendJson(response, 400, { error: "Informe a senha atual e a nova senha." });
+      return;
+    }
+    if (String(body.newPassword).length < 6) {
+      sendJson(response, 400, { error: "A nova senha deve ter pelo menos 6 caracteres." });
+      return;
+    }
+
+    const db = await readDb();
+    const index = (db.users || []).findIndex((item) => item.id === user.id);
+    if (index === -1) {
+      sendJson(response, 404, { error: "Usuário não encontrado." });
+      return;
+    }
+    if (db.users[index].passwordHash !== hashPassword(body.currentPassword)) {
+      sendJson(response, 401, { error: "Senha atual inválida." });
+      return;
+    }
+
+    db.users[index].passwordHash = hashPassword(body.newPassword);
+    addAuditLog(db, user, "alterou senha", "users", user.id, user.email);
+    await writeDb(db);
+    notifyDataChanged("users", "password", user.id);
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/data") {
     const db = await readDb();
     sendJson(response, 200, publicData(db, user));
