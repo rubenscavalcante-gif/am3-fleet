@@ -10,6 +10,7 @@ const host = process.env.FLEETDESK_HOST || process.env.HOST || (process.env.REND
 const backupsDir = process.env.FLEETDESK_BACKUP_DIR || path.join(root, "backups");
 const storageDriver = (process.env.STORAGE_DRIVER || "local").toLowerCase();
 const supabaseStorageBucket = process.env.SUPABASE_STORAGE_BUCKET || "am3-fleet";
+const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "";
 const serverStartedAt = new Date().toISOString();
 const sessions = new Map();
 const eventClients = new Set();
@@ -198,6 +199,7 @@ async function handleApi(request, response) {
     db.quickExits.unshift(record);
     addAuditLog(db, user, "retirou", "quickExits", record.id, `${vehicle.plate} por ${driver.name}`);
     await writeDb(db);
+    announceQuickExitCheckout(db, record, user).catch((error) => console.error("Falha ao anunciar retirada no Discord:", error.message));
     notifyDataChanged("quickExits", "checkout", record.id);
     sendJson(response, 201, { quickExit: record });
     return;
@@ -307,6 +309,9 @@ async function handleApi(request, response) {
     applySideEffects(db, collection, record);
     addAuditLog(db, user, "criou", collection, record.id, summarizeRecord(collection, record));
     await writeDb(db);
+    if (collection === "quickExits" && normalizeStatus(record.status) === "aberta") {
+      announceQuickExitCheckout(db, record, user).catch((error) => console.error("Falha ao anunciar retirada no Discord:", error.message));
+    }
     notifyDataChanged(collection, "create", record.id);
     sendJson(response, 201, record);
     return;
@@ -646,6 +651,70 @@ function notifyDataChanged(collection, action, id) {
       eventClients.delete(client);
     }
   }
+}
+
+async function announceQuickExitCheckout(db, quickExit, user) {
+  if (!discordWebhookUrl) return;
+
+  const vehicle = (db.vehicles || []).find((item) => item.id === quickExit.vehicleId);
+  const driver = (db.drivers || []).find((item) => item.id === quickExit.driverId);
+  const vehicleText = vehicle ? `${vehicle.plate} - ${vehicle.model}` : quickExit.vehicleId || "Veículo não informado";
+  const driverText = driver?.name || quickExit.driverId || "Motorista não informado";
+  const destination = quickExit.destination || "Destino não informado";
+  const departure = formatDiscordDateTime(quickExit.departureAt || localDateTimeValue());
+  const createdBy = user?.name || user?.email || "AM3 Fleet";
+  const payload = {
+    username: "AM3 Fleet",
+    content: [
+      "**Saída de veículo registrada**",
+      `Motorista: ${driverText}`,
+      `Veículo: ${vehicleText}`,
+      `Destino: ${destination}`,
+      `Saída: ${departure}`,
+      `Registrado por: ${createdBy}`
+    ].join("\n"),
+    allowed_mentions: { parse: [] }
+  };
+
+  await postDiscordWebhook(payload);
+}
+
+async function postDiscordWebhook(payload) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(discordWebhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`HTTP ${response.status}${text ? ` - ${text.slice(0, 160)}` : ""}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatDiscordDateTime(value) {
+  if (!value) return "";
+  const localMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (localMatch) {
+    const [, year, month, day, hour, minute] = localMatch;
+    return `${day}/${month}/${year}, ${hour}:${minute}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).replace("T", " ");
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: process.env.APP_TIME_ZONE || "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function getToken(request) {

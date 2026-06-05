@@ -33,3 +33,5 @@ services:
         sync: false
       - key: SUPABASE_STORAGE_BUCKET
         value: am3-fleet
+      - key: DISCORD_WEBHOOK_URL
+        sync: false

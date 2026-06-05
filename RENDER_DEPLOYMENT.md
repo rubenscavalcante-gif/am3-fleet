@@ -60,9 +60,10 @@ STORAGE_DRIVER=supabase
 SUPABASE_URL=https://tmcdslecowxoztikmdbp.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
 SUPABASE_STORAGE_BUCKET=am3-fleet
+DISCORD_WEBHOOK_URL=sua_url_do_webhook_do_discord
 ```
 
-Nunca coloque `DB_PASSWORD` ou `SUPABASE_SERVICE_ROLE_KEY` direto no codigo.
+Nunca coloque `DB_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY` ou `DISCORD_WEBHOOK_URL` direto no codigo.
 
 ## Usando render.yaml
 
