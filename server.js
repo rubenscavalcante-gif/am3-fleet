@@ -220,6 +220,10 @@ async function handleApi(request, response) {
 
     exit.returnedAt = localDateTimeValue();
     exit.status = "Aguardando conferência";
+    exit.returnLatitude = normalizeOptionalNumber(body.returnLatitude);
+    exit.returnLongitude = normalizeOptionalNumber(body.returnLongitude);
+    exit.returnAccuracy = normalizeOptionalNumber(body.returnAccuracy);
+    exit.returnLocationAt = body.returnLocationAt || "";
     exit.notes = [exit.notes, body.notes || "Devolução registrada pelo modo motorista."].filter(Boolean).join(" ");
     addAuditLog(db, user, "devolveu", "quickExits", exit.id, summarizeRecord("quickExits", exit));
     await writeDb(db);
@@ -792,6 +796,10 @@ function normalizeRecord(collection, body, keepId = false) {
     record.odometerOut = record.odometerOut === null || record.odometerOut === "" || record.odometerOut === undefined ? null : Number(record.odometerOut);
     record.odometerIn = record.odometerIn === null || record.odometerIn === "" || record.odometerIn === undefined ? null : Number(record.odometerIn);
     record.returnedAt = record.returnedAt || "";
+    record.returnLatitude = normalizeOptionalNumber(record.returnLatitude);
+    record.returnLongitude = normalizeOptionalNumber(record.returnLongitude);
+    record.returnAccuracy = normalizeOptionalNumber(record.returnAccuracy);
+    record.returnLocationAt = String(record.returnLocationAt || "");
     record.receiptRef = String(record.receiptRef || "");
     record.notes = String(record.notes || "");
   }
@@ -928,6 +936,12 @@ function normalizeText(value) {
 
 function normalizeStatus(value) {
   return normalizeText(value).replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === null || value === "" || value === undefined) return "";
+  const number = Number(value);
+  return Number.isFinite(number) ? number : "";
 }
 
 function localDateTimeValue(date = new Date()) {

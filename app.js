@@ -404,16 +404,47 @@ async function returnMobileExit(id) {
   if (notes === null) return;
 
   try {
+    toast("Obtendo localização da devolução...");
+    const location = await getReturnLocation();
     await api("/api/mobile/return", {
       method: "POST",
-      body: { quickExitId: id, notes }
+      body: {
+        quickExitId: id,
+        notes,
+        returnLatitude: location?.latitude ?? "",
+        returnLongitude: location?.longitude ?? "",
+        returnAccuracy: location?.accuracy ?? "",
+        returnLocationAt: location ? toDateTimeValue(new Date()) : ""
+      }
     });
     await refreshData();
     renderAll();
-    toast("Devolução registrada. Aguardando conferência da recepção.");
+    toast(location ? "Devolução registrada com localização." : "Devolução registrada sem localização.");
   } catch (error) {
     toast(error.message);
   }
+}
+
+function getReturnLocation() {
+  if (!("geolocation" in navigator)) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  });
 }
 
 async function removeRecord(collection, id) {
@@ -1314,6 +1345,17 @@ function renderBookings() {
   });
 }
 
+function quickExitLocationLink(item) {
+  const latitude = Number(item.returnLatitude);
+  const longitude = Number(item.returnLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+
+  const accuracy = Number(item.returnAccuracy);
+  const label = Number.isFinite(accuracy) && accuracy > 0 ? `localização ±${Math.round(accuracy)}m` : "localização";
+  const query = encodeURIComponent(`${latitude},${longitude}`);
+  return ` · <a href="https://www.google.com/maps?q=${query}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+}
+
 function renderQuickExits() {
   const exits = filterRows(data.quickExits || [], (item) => {
     const vehicle = findVehicle(item.vehicleId);
@@ -1326,11 +1368,12 @@ function renderQuickExits() {
     const driver = findDriver(item.driverId);
     const returned = item.returnedAt ? ` · retorno ${formatDateTime(item.returnedAt)}` : "";
     const receipts = item.receiptRef ? ` · comprovantes ${escapeHtml(compactReceiptRef(item.receiptRef))}` : "";
+    const location = quickExitLocationLink(item);
     return `
       <article class="record">
         <div>
           <h3>${escapeHtml(item.destination)}</h3>
-          <p>${escapeHtml(vehicleLabel(vehicle))} · ${escapeHtml(driverLabel(driver))} · saída ${formatDateTime(item.departureAt)}${returned} · ${escapeHtml(item.reason)} · adiantado ${currency.format(item.advanceAmount || 0)} · combustível ${currency.format(item.fuelExpense || 0)} · alimentação ${currency.format(item.foodExpense || 0)} · outras ${currency.format(item.otherExpense || 0)} · devolvido ${currency.format(item.returnedAmount || 0)} · saldo ${currency.format(quickExitBalance(item))}${receipts}</p>
+          <p>${escapeHtml(vehicleLabel(vehicle))} · ${escapeHtml(driverLabel(driver))} · saída ${formatDateTime(item.departureAt)}${returned} · ${escapeHtml(item.reason)} · adiantado ${currency.format(item.advanceAmount || 0)} · combustível ${currency.format(item.fuelExpense || 0)} · alimentação ${currency.format(item.foodExpense || 0)} · outras ${currency.format(item.otherExpense || 0)} · devolvido ${currency.format(item.returnedAmount || 0)} · saldo ${currency.format(quickExitBalance(item))}${receipts}${location}</p>
         </div>
         <div class="record-actions">
           <span class="status ${statusTone(item.status)}">${escapeHtml(item.status)}</span>
@@ -2372,15 +2415,15 @@ function formatBytes(value) {
 
 function exportCsv() {
   const lines = [
-    ["modulo", "placa_ou_nome", "modelo_departamento", "motorista", "destino_local", "status_tipo", "data_inicio", "data_fim", "valor_adiantado", "combustivel", "alimentacao", "outras_despesas", "valor_devolvido", "valor_total", "observacoes"],
-    ...data.vehicles.map((item) => ["veiculo", item.plate, item.model, "", item.costCenter, item.status, "", "", "", "", "", "", "", "", ""]),
-    ...data.drivers.map((item) => ["motorista", item.name, item.department, "", "", item.status, item.licenseDue, "", "", "", "", "", "", "", `CNH ${item.license || ""}`]),
-    ...data.bookings.map((item) => ["agendamento", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.purpose, item.start, item.end, "", "", "", "", "", "", ""]),
-    ...(data.quickExits || []).map((item) => ["saida_rapida", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.status, item.departureAt, item.returnedAt || "", item.advanceAmount || 0, item.fuelExpense || 0, item.foodExpense || 0, item.otherExpense || 0, item.returnedAmount || 0, item.spentAmount || 0, item.reason || item.notes || ""]),
-    ...data.fuel.map((item) => ["abastecimento", vehicleLabel(findVehicle(item.vehicleId)), "", "", item.station, "abastecimento", item.date, "", "", "", "", "", "", item.total, `${item.liters || 0} litros`]),
-    ...data.maintenance.map((item) => ["manutencao", vehicleLabel(findVehicle(item.vehicleId)), "", "", "", item.status, item.date, item.nextDue || "", "", "", "", "", "", item.cost, `${item.type} - ${item.description}`]),
-    ...(data.checklists || []).map((item) => ["checklist", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), "", item.status, item.date, "", "", "", "", "", "", "", item.type]),
-    ...(data.documents || []).map((item) => ["documento", documentOwnerLabel(item), item.name, "", "", item.type, item.dueDate, "", "", "", "", "", "", "", item.fileRef || item.notes || ""])
+    ["modulo", "placa_ou_nome", "modelo_departamento", "motorista", "destino_local", "status_tipo", "data_inicio", "data_fim", "valor_adiantado", "combustivel", "alimentacao", "outras_despesas", "valor_devolvido", "valor_total", "observacoes", "latitude_devolucao", "longitude_devolucao", "precisao_metros", "data_localizacao"],
+    ...data.vehicles.map((item) => ["veiculo", item.plate, item.model, "", item.costCenter, item.status, "", "", "", "", "", "", "", "", "", "", "", "", ""]),
+    ...data.drivers.map((item) => ["motorista", item.name, item.department, "", "", item.status, item.licenseDue, "", "", "", "", "", "", "", `CNH ${item.license || ""}`, "", "", "", ""]),
+    ...data.bookings.map((item) => ["agendamento", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.purpose, item.start, item.end, "", "", "", "", "", "", "", "", "", "", ""]),
+    ...(data.quickExits || []).map((item) => ["saida_rapida", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), item.destination, item.status, item.departureAt, item.returnedAt || "", item.advanceAmount || 0, item.fuelExpense || 0, item.foodExpense || 0, item.otherExpense || 0, item.returnedAmount || 0, item.spentAmount || 0, item.reason || item.notes || "", item.returnLatitude ?? "", item.returnLongitude ?? "", item.returnAccuracy ?? "", item.returnLocationAt || ""]),
+    ...data.fuel.map((item) => ["abastecimento", vehicleLabel(findVehicle(item.vehicleId)), "", "", item.station, "abastecimento", item.date, "", "", "", "", "", "", item.total, `${item.liters || 0} litros`, "", "", "", ""]),
+    ...data.maintenance.map((item) => ["manutencao", vehicleLabel(findVehicle(item.vehicleId)), "", "", "", item.status, item.date, item.nextDue || "", "", "", "", "", "", item.cost, `${item.type} - ${item.description}`, "", "", "", ""]),
+    ...(data.checklists || []).map((item) => ["checklist", vehicleLabel(findVehicle(item.vehicleId)), "", driverLabel(findDriver(item.driverId)), "", item.status, item.date, "", "", "", "", "", "", "", item.type, "", "", "", ""]),
+    ...(data.documents || []).map((item) => ["documento", documentOwnerLabel(item), item.name, "", "", item.type, item.dueDate, "", "", "", "", "", "", "", item.fileRef || item.notes || "", "", "", "", ""])
   ];
 
   const csv = `sep=;\r\n${lines.map((line) => line.map(csvCell).join(";")).join("\r\n")}`;
