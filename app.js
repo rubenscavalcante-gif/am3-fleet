@@ -400,12 +400,12 @@ async function submitMobileCheckout(event) {
 }
 
 async function returnMobileExit(id) {
-  const notes = window.prompt("Observação da devolução, se houver:", "Veículo devolvido à empresa.");
-  if (notes === null) return;
-
   try {
     toast("Obtendo localização da devolução...");
-    const location = await getReturnLocation();
+    const { location, message } = await getReturnLocation();
+    const notes = window.prompt("Observação da devolução, se houver:", "Veículo devolvido à empresa.");
+    if (notes === null) return;
+
     await api("/api/mobile/return", {
       method: "POST",
       body: {
@@ -419,28 +419,43 @@ async function returnMobileExit(id) {
     });
     await refreshData();
     renderAll();
-    toast(location ? "Devolução registrada com localização." : "Devolução registrada sem localização.");
+    toast(location ? "Devolução registrada com localização." : `Devolução registrada sem localização. ${message}`);
   } catch (error) {
     toast(error.message);
   }
 }
 
 function getReturnLocation() {
-  if (!("geolocation" in navigator)) return Promise.resolve(null);
+  if (!window.isSecureContext) {
+    return Promise.resolve({ location: null, message: "Abra pelo endereço HTTPS do sistema." });
+  }
+  if (!("geolocation" in navigator)) {
+    return Promise.resolve({ location: null, message: "Este navegador não oferece GPS." });
+  }
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
+          location: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          },
+          message: ""
         });
       },
-      () => resolve(null),
+      (error) => {
+        const messages = {
+          1: "Permissão de localização negada no aparelho.",
+          2: "O aparelho não conseguiu obter a posição.",
+          3: "Tempo esgotado ao buscar localização."
+        };
+        resolve({ location: null, message: messages[error.code] || "Localização indisponível." });
+      },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 60000
       }
     );
